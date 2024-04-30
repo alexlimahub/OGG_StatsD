@@ -1,0 +1,138 @@
+# This Docker Compose file is for education purpose only and it contains all necessary components 
+# to instantiate one Oracle GoldenGate 23 instance and two Oracle Database 23 Free instances
+
+# This yaml file will create 3 docker containers:
+#   1- One Oracle Goldengate 23 Hub
+#   2- One Oracle Database 23  (Named: West)
+#   3- One Oracle Database 23  (Named: East) 
+
+# To connect to goldengate and databases you can go to:
+#  GG Microservices: https://localhost:281  [ user: oggadmin, password: Welcome##123 ]
+#
+#  Database Service West for SQL Developer: localhost:1522/FREEPDB1  [ sys password: Welcome##123 ]
+#  Database Service East for SQL Developer: localhost:1523/FREEPDB1  [ sys password: Welcome##123 ]
+#
+#  Internal ports all all the same: 1521
+#  Database Service West for GoldenGate: 172.13.0.102:1521/FREEPDB1  [ oggadmin password: Welcome##123 ]
+#  Database Service East for GoldenGate: 172.13.0.103:1521/FREEPDB1  [ oggadmin password: Welcome##123 ]
+
+# Sample HR schema is installed on both databases
+
+version: '3.8'
+services:
+# Create GoldenGate HUB Instance
+  gg:
+    container_name: ogg234demo
+    hostname: ogg234demo
+    image:  alexlima/goldengate234:latest
+    ports:
+      - "281:443"
+    deploy:
+      resources:
+          limits:
+            cpus: '4.0'
+            memory: 8192M
+          reservations:
+            cpus: '4.0'
+            memory: 8192M
+    env_file:
+      - .env
+    networks:
+      ogg_docker_network_234:
+        ipv4_address: ${DOCKER_OGG_WEST_IP}
+    volumes:
+      - ${PWD}/cert:/etc/nginx/cert:rw
+
+# Create WEST Side Database 23.3 Free
+  databaseW:
+    container_name: db233demoW
+    hostname: db233demoW
+    image: alexlima/oracle-free:23.3-slim-ogg
+    ports:
+      - "1524:1521"
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      ogg_docker_network_234:
+        ipv4_address: ${DOCKER_DB_WEST_IP}
+
+
+# Create EAST Side Database 23.3 Free
+  databaseE:
+    container_name: db233demoE
+    hostname: db233demoE
+    image: alexlima/oracle-free:23.3-slim-ogg
+    ports:
+      - "1525:1521"
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      ogg_docker_network_234:
+        ipv4_address: ${DOCKER_DB_EAST_IP}
+    
+# Create Influxdb Database
+  influxdb:
+    image: alexlima/influxdb:2.7-alpine
+    container_name: influxdb
+    restart: always
+    env_file:
+      - .env
+    entrypoint: ["./entrypoint.sh"]
+    ports:
+      - ${DOCKER_INFLUXDB_INIT_PORT}:8086
+    volumes:
+      - influxdb_data:/var/lib/influxdb:rw
+    networks: 
+      ogg_docker_network_234:
+        ipv4_address: ${DOCKER_INFLUXDB_IP}
+
+# Create Telegraf 
+  telegraf:
+    image: alexlima/telegraf:1.30.2
+    container_name: telegraf
+    restart: always
+    volumes:
+      - ${TELEGRAF_CFG_PATH}:/etc/telegraf/telegraf.conf:rw
+    env_file:
+      - .env
+    depends_on:
+      - influxdb
+    links:
+      - influxdb
+    ports:
+    - '8125:8125'
+    networks: 
+      ogg_docker_network_234:
+        ipv4_address: ${DOCKER_TELEGRAF_IP}
+
+  grafana:
+    image: alexlima/grafana:10.4.2
+    container_name: grafana-server
+    restart: always
+    depends_on:
+      - influxdb
+    env_file:
+      - .env
+    links:
+      - influxdb
+    ports:
+      - ${GRAFANA_PORT}:3000
+    volumes:
+      - grafana_data:/var/lib/grafana:rw
+    networks: 
+      ogg_docker_network_234:
+        ipv4_address: ${DOCKER_GRAFANA_IP}
+
+networks:
+  ogg_docker_network_234:
+    driver: bridge
+    ipam:
+      config:
+      - subnet: 172.13.0.0/16
+
+volumes:
+  grafana_data: {}
+  influxdb_data: {}
+
