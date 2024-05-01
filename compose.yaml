@@ -26,7 +26,7 @@ services:
     hostname: ogg234demo
     image:  alexlima/goldengate234:latest
     ports:
-      - "281:443"
+      - "1055:443"
     deploy:
       resources:
           limits:
