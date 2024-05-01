@@ -1,7 +1,7 @@
 #!/bin/bash
 
 deployment_name="WEST"
-deployment_port=281
+deployment_port=1055
 
 
 # Stop Deployment
