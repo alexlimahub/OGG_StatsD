@@ -10,7 +10,7 @@ conn_propeties=("WEST:172.13.0.102" "EAST:172.13.0.103")   # Database Connection
 list_region=("WEST" "EAST")                            # Database Regions Name
 extract_properties=("WEST:EWEST:ew" "EAST:EEAST:ee")   # Name for the Extract (<connection alias>:<Extract_name>:<trail>)
 replicat_properties=("WEST:REAST:ee" "EAST:RWEST:ew")  # Name for the replicat represents where the data come from (<connection alias>:<Replicat_name>:<trail>)
-ogg_port=281
+ogg_port=1055
 
 #Create Connection to the all Databases
 for region in "${conn_propeties[@]}"
