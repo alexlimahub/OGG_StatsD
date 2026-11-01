@@ -1,19 +1,29 @@
 #!/bin/bash
 
-# Wait for GoldenGate and both databases to be healthy (first start takes a few minutes)
-for container in ogg234demo db233demoW db233demoE; do
-    echo "Waiting for $container to be healthy ......"
-    until [ "$(docker inspect -f '{{.State.Health.Status}}' $container 2>/dev/null)" = "healthy" ]; do
-        sleep 10
+# Wait for GoldenGate and both databases to be healthy (first start takes a few minutes).
+# Skipped when docker is not available, e.g. inside the compose "setup" service,
+# where depends_on already waits for the healthchecks.
+if command -v docker > /dev/null; then
+    for container in ogg234demo db233demoW db233demoE; do
+        echo "Waiting for $container to be healthy ......"
+        until [ "$(docker inspect -f '{{.State.Health.Status}}' $container 2>/dev/null)" = "healthy" ]; do
+            sleep 10
+        done
     done
-done
+fi
 
-hostname_ogg=("localhost")                             # Default to localhost for local Docker build
+hostname_ogg=${OGG_HOST:-localhost}                    # Default to localhost for local Docker build
 conn_propeties=("WEST:172.28.0.102" "EAST:172.28.0.103")   # Database Connection Properties: (<alias name>:<database host>)
 list_region=("WEST" "EAST")                            # Database Regions Name
 extract_properties=("WEST:EWEST:ew" "EAST:EEAST:ee")   # Name for the Extract (<connection alias>:<Extract_name>:<trail>)
 replicat_properties=("WEST:REAST:ee" "EAST:RWEST:ew")  # Name for the replicat represents where the data come from (<connection alias>:<Replicat_name>:<trail>)
-ogg_port=1055
+ogg_port=${OGG_PORT:-1055}
+
+# Skip if the replication already exists (makes the script safe to re-run)
+if curl -sk -u 'oggadmin:Welcome##123' "https://$hostname_ogg:$ogg_port/services/v2/extracts" | grep -q '"name":"EWEST"'; then
+    echo "Replication already configured, nothing to do."
+    exit 0
+fi
 
 #Create Connection to the all Databases
 for region in "${conn_propeties[@]}"
@@ -129,7 +139,7 @@ done
 
 
 echo "#########################################################################"
-echo "# Please visit https://localhost:$ogg_port to explore GoldenGate        #"
+echo "# Please visit https://localhost:1055 to explore GoldenGate             #"
 echo "#########################################################################"
 
 echo

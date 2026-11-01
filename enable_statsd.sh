@@ -3,9 +3,10 @@
 # restarts any existing Extracts/Replicats so they start reporting.
 
 deployment_name="WEST"
-deployment_port=1055
 ogg_auth='oggadmin:Welcome##123'
-ogg_api="https://localhost:${deployment_port}/services/v2"
+ogg_api="https://${OGG_HOST:-localhost}:${OGG_PORT:-1055}/services/v2"
+# Admin Service URL, reachable from inside the Docker network only
+admin_url="http://172.28.0.101:9011/services/v2/deployments/${deployment_name}"
 statsd_host="172.28.0.200"   # DOCKER_TELEGRAF_IP in .env
 
 # Wait until the deployment reports the given status (running|stopped)
@@ -19,6 +20,12 @@ wait_for_deployment() {
     exit 1
 }
 
+# Skip if StatsD is already enabled (makes the script safe to re-run)
+if curl -sk -u "$ogg_auth" "$ogg_api/deployments/$deployment_name" | grep -q '"type":"statsd"'; then
+    echo "StatsD metrics already enabled, nothing to do."
+    exit 0
+fi
+
 # Stop Deployment
 curl -sk -u "$ogg_auth" \
 -d '{"status": "stopped","enabled": false}' \
@@ -27,7 +34,14 @@ echo
 wait_for_deployment stopped
 
 # Enable StatsD
-docker exec -i ogg234demo curl -su "$ogg_auth" "http://172.28.0.101:9011/services/v2/deployments/${deployment_name}" -X PATCH \
+# From the host this goes through the GoldenGate container; inside the network
+# (compose "setup" service) it calls the Admin Service directly.
+if command -v docker > /dev/null; then
+    admin_curl=(docker exec -i ogg234demo curl)
+else
+    admin_curl=(curl)
+fi
+"${admin_curl[@]}" -su "$ogg_auth" "$admin_url" -X PATCH \
 --data '{"metrics": {"enabled":true, "servers": [ {"type":"pmsrvr", "protocol":"uds"}, {"type":"statsd", "host":"'$statsd_host'"}]}}'
 echo
 

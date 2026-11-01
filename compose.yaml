@@ -142,6 +142,32 @@ services:
       ogg_docker_network_234:
         ipv4_address: ${DOCKER_GRAFANA_IP}
 
+# One-shot job: sets up WEST <-> EAST replication and StatsD metrics once everything is healthy.
+# Reuses the GoldenGate image (bash + curl); both scripts skip work that is already done.
+  setup:
+    container_name: ogg-setup
+    image: container-registry.oracle.com/goldengate/goldengate-oracle-free:23.26.3.0.6
+    entrypoint: ["bash", "-c", "./create_replication.sh && ./enable_statsd.sh"]
+    working_dir: /setup
+    restart: "no"
+    environment:
+      OGG_HOST: ${DOCKER_OGG_WEST_IP}
+      OGG_PORT: "8443"
+    volumes:
+      - ./create_replication.sh:/setup/create_replication.sh:ro
+      - ./enable_statsd.sh:/setup/enable_statsd.sh:ro
+    depends_on:
+      gg:
+        condition: service_healthy
+      databaseW:
+        condition: service_healthy
+      databaseE:
+        condition: service_healthy
+      telegraf:
+        condition: service_started
+    networks:
+      - ogg_docker_network_234
+
 networks:
   ogg_docker_network_234:
     driver: bridge

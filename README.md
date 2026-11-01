@@ -25,9 +25,13 @@ All passwords are `Welcome##123` (users: `oggadmin` for GoldenGate, `admin` for 
 
 ```bash
 docker compose up -d
-./create_replication.sh   # waits for containers, then sets up WEST <-> EAST replication of HR
-./enable_statsd.sh        # enables StatsD metrics and restarts the Extracts/Replicats
+docker logs -f ogg-setup   # optional: follow the one-time setup until it exits
 ```
+
+First start takes a few minutes. Once GoldenGate and both databases are healthy, the
+one-shot `ogg-setup` container runs `create_replication.sh` (WEST <-> EAST replication
+of HR) and `enable_statsd.sh` (StatsD metrics, restarts the Extracts/Replicats).
+Both scripts skip work that is already done, so they can also be re-run by hand from the host.
 
 Then open:
 
