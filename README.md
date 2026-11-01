@@ -24,14 +24,16 @@ All passwords are `Welcome##123` (users: `oggadmin` for GoldenGate, `admin` for 
 ## Quick start
 
 ```bash
-docker compose up -d
-docker logs -f ogg-setup   # optional: follow the one-time setup until it exits
+./start.sh
 ```
 
 First start takes a few minutes. Once GoldenGate and both databases are healthy, the
 one-shot `ogg-setup` container runs `create_replication.sh` (WEST <-> EAST replication
 of HR) and `enable_statsd.sh` (StatsD metrics, restarts the Extracts/Replicats).
-Both scripts skip work that is already done, so they can also be re-run by hand from the host.
+The startup script follows the setup logs until the job exits and returns its exit
+status. Both setup scripts skip work that is already done, so they can also be
+re-run by hand from the host. Pass Compose options before startup, for example
+`./start.sh -p myproject`.
 
 Then open:
 
@@ -48,7 +50,7 @@ commit;
 SQL
 ```
 
-If port 3000 is already in use: `GRAFANA_PORT=3001 docker compose up -d`.
+If port 3000 is already in use: `GRAFANA_PORT=3001 ./start.sh`.
 
 ## Clean up
 
